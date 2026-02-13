@@ -4,7 +4,7 @@ import { TimerMode, Room, Message } from './types';
 import JoinScreen from './components/JoinScreen';
 import Timer from './components/Timer';
 import ChatContainer from './components/ChatContainer';
-import { supabase, isSupabaseConfigured } from './services/supabaseClient';
+import { getSupabase, isSupabaseConfigured } from './services/supabaseClient';
 
 const App: React.FC = () => {
   const [userName, setUserName] = useState<string>('');
@@ -17,11 +17,12 @@ const App: React.FC = () => {
 
   // Initial Fetch & Real-time Subscriptions
   useEffect(() => {
-    if (!currentRoom || !isSupabaseConfigured) return;
+    if (!currentRoom || !isSupabaseConfigured()) return;
+    const client = getSupabase();
 
     // 1. Fetch initial messages
     const fetchInitialData = async () => {
-      const { data } = await supabase
+      const { data } = await client
         .from('messages')
         .select()
         .eq('room_id', currentRoom.id)
@@ -31,7 +32,7 @@ const App: React.FC = () => {
     fetchInitialData();
 
     // 2. Subscribe to new messages
-    const messageSub = supabase
+    const messageSub = client
       .channel(`room_messages_${currentRoom.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${currentRoom.id}` }, (payload) => {
         setMessages(prev => [...prev, payload.new as Message]);
@@ -39,7 +40,7 @@ const App: React.FC = () => {
       .subscribe();
 
     // 3. Subscribe to room updates (Timer state)
-    const roomSub = supabase
+    const roomSub = client
       .channel(`room_state_${currentRoom.id}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${currentRoom.id}` }, (payload) => {
         const update = payload.new as Room;
@@ -58,8 +59,9 @@ const App: React.FC = () => {
   }, [currentRoom, isMaster]);
 
   const syncRoomState = useCallback(async (state: Partial<Room>) => {
-    if (!currentRoom || !isMaster || !isSupabaseConfigured) return;
-    await supabase
+    if (!currentRoom || !isMaster || !isSupabaseConfigured()) return;
+    const client = getSupabase();
+    await client
       .from('rooms')
       .update(state)
       .eq('id', currentRoom.id);
@@ -115,8 +117,9 @@ const App: React.FC = () => {
   };
 
   const sendMessage = async (msg: Partial<Message>) => {
-    if (!currentRoom || !isSupabaseConfigured) return;
-    await supabase.from('messages').insert([{
+    if (!currentRoom || !isSupabaseConfigured()) return;
+    const client = getSupabase();
+    await client.from('messages').insert([{
       room_id: currentRoom.id,
       sender: userName,
       content: msg.content,
