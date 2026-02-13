@@ -1,0 +1,8 @@
+
+{
+  "name": "PomoChat Pro",
+  "description": "A professional collaborative Pomodoro timer powered by Supabase Realtime. Sync focus sessions across devices with private encrypted-room support.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
