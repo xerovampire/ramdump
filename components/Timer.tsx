@@ -39,24 +39,11 @@ const Timer: React.FC<TimerProps> = ({
     setShowSettings(false);
   };
 
+  // Ultra-soft glow colors
+  const glowColor = isStudy ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+
   return (
     <div className="flex flex-col items-center group w-full relative">
-      <style>{`
-        @keyframes breathe {
-          0%, 100% { filter: drop-shadow(0 0 8px var(--glow-color)); opacity: 0.6; transform: scale(1); }
-          50% { filter: drop-shadow(0 0 20px var(--glow-color)); opacity: 0.9; transform: scale(1.02); }
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .timer-glow {
-          --glow-color: ${isStudy ? 'rgba(244, 63, 94, 0.5)' : 'rgba(16, 185, 129, 0.5)'};
-          animation: ${isActive ? 'breathe 4s ease-in-out infinite' : 'none'};
-          transition: all 0.5s ease;
-        }
-      `}</style>
-
       {showSettings && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-950/95 backdrop-blur-2xl border border-white/10 w-full rounded-[2.5rem] p-8 shadow-3xl animate-in zoom-in-95 fade-in duration-300">
@@ -86,40 +73,39 @@ const Timer: React.FC<TimerProps> = ({
       )}
 
       <div className={`relative w-72 h-72 flex items-center justify-center transition-all duration-700 ${showSettings ? 'opacity-5 pointer-events-none scale-90' : 'opacity-100'}`}>
-        {/* Multi-layered glow to remove visible edges */}
-        <div className={`absolute inset-0 blur-[100px] rounded-full transition-all duration-1000 ${isStudy ? 'bg-rose-600/30' : 'bg-emerald-600/30'} ${isActive ? 'scale-125 opacity-40' : 'scale-100 opacity-20'}`}></div>
-        <div className={`absolute inset-[-40px] blur-[150px] rounded-full transition-all duration-1000 ${isStudy ? 'bg-rose-900/10' : 'bg-emerald-900/10'} ${isActive ? 'opacity-30' : 'opacity-0'}`}></div>
+        {/* Soft radial background glow without sharp edges */}
+        <div 
+          className="absolute inset-[-60px] blur-[120px] rounded-full pointer-events-none"
+          style={{ 
+            background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
+            opacity: isActive ? 1 : 0.4,
+            transition: 'opacity 1s ease'
+          }}
+        ></div>
         
         <svg viewBox="0 0 100 100" className="absolute w-full h-full -rotate-90 select-none overflow-visible">
           {/* Main Track */}
           <circle cx="50" cy="50" r="45" className="stroke-white/[0.04] fill-none" strokeWidth="5.5" />
           
-          {/* Progress Circle with dynamic glow */}
+          {/* Progress Circle - Solid and smooth, no breathe animation */}
           <circle 
             cx="50" cy="50" r="45" 
-            className={`fill-none transition-all duration-700 ease-linear timer-glow ${isStudy ? 'stroke-rose-500' : 'stroke-emerald-500'}`} 
+            className={`fill-none transition-all duration-1000 ease-linear ${isStudy ? 'stroke-rose-500' : 'stroke-emerald-500'}`} 
             strokeWidth="5.5" 
             strokeDasharray={circumference} 
-            style={{ strokeDashoffset }} 
+            style={{ 
+                strokeDashoffset,
+                filter: isActive ? `drop-shadow(0 0 6px ${isStudy ? 'rgba(244,63,94,0.3)' : 'rgba(16,185,129,0.3)'})` : 'none'
+            }} 
             strokeLinecap="round" 
           />
-
-          {isActive && (
-            <circle 
-              cx="50" cy="50" r="45" 
-              className="stroke-white/10 fill-none" 
-              strokeWidth="0.5" 
-              strokeDasharray="1 15"
-              style={{ animation: 'spin-slow 30s linear infinite' }}
-            />
-          )}
         </svg>
 
         <div className="text-center z-10 select-none">
           <p className={`text-[10px] font-black uppercase tracking-[0.4em] mb-4 transition-all duration-700 ${isStudy ? 'text-rose-500' : 'text-emerald-500'} ${isActive ? 'opacity-100' : 'opacity-40'}`}>
             {isStudy ? 'Focusing' : 'Resting'}
           </p>
-          <h2 className={`text-[5.5rem] font-black font-mono tracking-tighter text-white tabular-nums leading-none transition-transform duration-500 ${isActive ? 'scale-105' : 'scale-100'}`}>
+          <h2 className={`text-6xl font-black font-mono tracking-tighter text-white tabular-nums leading-none transition-transform duration-500`}>
             {formatTime(timeLeft)}
           </h2>
         </div>
@@ -158,7 +144,7 @@ const Timer: React.FC<TimerProps> = ({
           onClick={() => setShowSettings(true)}
           className="p-5 bg-slate-900 border border-white/5 text-slate-500 hover:text-white rounded-[2.5rem] transition-all duration-300 active:scale-75"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65(6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
     </div>
