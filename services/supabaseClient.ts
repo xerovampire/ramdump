@@ -4,21 +4,16 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 let client: SupabaseClient | null = null;
 
 export const getDetectedConfig = () => {
-  // 1. Check process.env (Node/Vercel/Webpack)
   const env = (typeof process !== 'undefined' && process.env) ? process.env : {};
-  
-  // 2. Check import.meta.env (Vite/Modern ESM)
   // @ts-ignore
   const metaEnv = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
-
-  // 3. Check global window/globalThis (Direct injection or Sandbox globals)
-  const g = (typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {})) as any;
-  const winEnv = g.process?.env || g._env_ || g.env || g.CONFIG || {};
+  const win = (typeof window !== 'undefined') ? (window as any) : {};
+  const winEnv = win.process?.env || win._env_ || win.env || {};
 
   const find = (key: string) => {
-    return env[key] || metaEnv[key] || winEnv[key] || 
-           env[`VITE_${key}`] || metaEnv[`VITE_${key}`] || 
-           env[`NEXT_PUBLIC_${key}`] || metaEnv[`NEXT_PUBLIC_${key}`] || 
+    return env[`VITE_${key}`] || metaEnv[`VITE_${key}`] || winEnv[`VITE_${key}`] ||
+           env[key] || metaEnv[key] || winEnv[key] ||
+           env[`NEXT_PUBLIC_${key}`] || metaEnv[`NEXT_PUBLIC_${key}`] ||
            sessionStorage.getItem(`manual_${key.toLowerCase()}`);
   };
 

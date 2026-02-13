@@ -9,13 +9,12 @@ interface JoinScreenProps {
 
 const JoinScreen: React.FC<JoinScreenProps> = ({ onJoin }) => {
   const [isCreating, setIsCreating] = useState(true);
-  const [showConfig, setShowConfig] = useState(false);
+  const [showConfig, setShowConfig] = useState(!isSupabaseConfigured());
   const [name, setName] = useState('');
   const [roomName, setRoomName] = useState('');
   const [roomID, setRoomID] = useState('');
   const [password, setPassword] = useState('');
   
-  // Manual config state
   const config = getDetectedConfig();
   const [manualUrl, setManualUrl] = useState(config.url);
   const [manualKey, setManualKey] = useState(config.key);
@@ -25,34 +24,27 @@ const JoinScreen: React.FC<JoinScreenProps> = ({ onJoin }) => {
 
   const isConfigured = isSupabaseConfigured();
 
-  useEffect(() => {
-    if (!isConfigured) {
-      setShowConfig(true);
-    }
-  }, [isConfigured]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    // Explicitly apply manual settings if the environment hasn't picked them up
-    if (manualUrl && manualKey && !isConfigured) {
+    if (!isConfigured && manualUrl && manualKey) {
       configureSupabase(manualUrl, manualKey);
     }
 
     const client = getSupabase();
     if (!client) {
-      setError('Backend credentials missing. Check settings below.');
+      setError('Backend not configured. Check settings.');
       setShowConfig(true);
       return;
     }
 
-    if (!name) return setError('Please enter your display name');
+    if (!name) return setError('Enter your name');
 
     setLoading(true);
     try {
       if (isCreating) {
-        if (!roomName) throw new Error('Please enter a room name');
+        if (!roomName) throw new Error('Enter a room name');
         const id = Math.random().toString(36).substr(2, 6).toUpperCase();
         
         const { data, error: dbError } = await client
@@ -73,20 +65,20 @@ const JoinScreen: React.FC<JoinScreenProps> = ({ onJoin }) => {
         if (dbError) throw dbError;
         onJoin(data as Room, name);
       } else {
-        if (!roomID) throw new Error('Please enter a room ID');
+        if (!roomID) throw new Error('Enter a room ID');
         const { data, error: dbError } = await client
           .from('rooms')
           .select()
           .eq('id', roomID.toUpperCase())
           .single();
 
-        if (dbError || !data) throw new Error('Room not found. Check ID.');
+        if (dbError || !data) throw new Error('Room not found');
         if (data.password && data.password !== password) throw new Error('Incorrect password');
         
         onJoin(data as Room, name);
       }
     } catch (err: any) {
-      setError(err.message || 'Connection failed. Check your Supabase URL/Key.');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -101,56 +93,37 @@ const JoinScreen: React.FC<JoinScreenProps> = ({ onJoin }) => {
           <div className="w-20 h-20 bg-white text-black rounded-3xl mx-auto mb-6 flex items-center justify-center text-4xl font-black shadow-2xl rotate-3">P</div>
           <h2 className="text-3xl font-black text-white tracking-tighter italic">POMOCHAT PRO</h2>
           <div className="flex items-center justify-center gap-2 mt-2">
-             <div className={`w-1.5 h-1.5 rounded-full ${isConfigured ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500'}`}></div>
+             <div className={`w-1.5 h-1.5 rounded-full ${isConfigured ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`}></div>
              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
-               {isConfigured ? 'Connected to Cloud' : 'Backend Configuration Required'}
+               {isConfigured ? 'Cloud Active' : 'Setup Required'}
              </p>
           </div>
         </div>
 
         {showConfig && (
-          <div className="mb-8 p-6 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl space-y-4 animate-in fade-in slide-in-from-top-2">
-            <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Troubleshoot Backend</h3>
-            
-            {!isConfigured && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                <p className="text-[9px] text-amber-500 font-bold uppercase leading-relaxed tracking-wider text-center">
-                  Tip: In Vite/Vercel frontends, environment variables must be prefixed with <span className="bg-amber-500 text-black px-1 rounded">VITE_</span> to be visible in the browser.
-                </p>
-              </div>
-            )}
-
+          <div className="mb-8 p-5 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl space-y-4 animate-in fade-in slide-in-from-top-2">
+            <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Backend Config</h3>
             <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-[8px] font-black text-slate-600 uppercase ml-2">Supabase URL</label>
-                <input 
-                  type="text" 
-                  value={manualUrl} 
-                  onChange={(e) => setManualUrl(e.target.value)}
-                  className="w-full bg-black border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-800 focus:outline-none focus:border-white/20" 
-                  placeholder="https://xyz.supabase.co" 
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[8px] font-black text-slate-600 uppercase ml-2">Anon Key</label>
-                <input 
-                  type="password" 
-                  value={manualKey} 
-                  onChange={(e) => setManualKey(e.target.value)}
-                  className="w-full bg-black border border-white/5 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-800 focus:outline-none focus:border-white/20" 
-                  placeholder="eyJhbGciOi..." 
-                />
-              </div>
+              <input 
+                type="text" 
+                value={manualUrl} 
+                onChange={(e) => setManualUrl(e.target.value)}
+                className="w-full bg-black border border-white/5 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-800" 
+                placeholder="Supabase URL" 
+              />
+              <input 
+                type="password" 
+                value={manualKey} 
+                onChange={(e) => setManualKey(e.target.value)}
+                className="w-full bg-black border border-white/5 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-800" 
+                placeholder="Anon Key" 
+              />
             </div>
-            
             <button 
-              onClick={() => {
-                configureSupabase(manualUrl, manualKey);
-                window.location.reload();
-              }}
-              className="w-full py-2 bg-indigo-600/20 text-indigo-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-indigo-600/30 hover:bg-indigo-600/30 transition-all"
+              onClick={() => { configureSupabase(manualUrl, manualKey); window.location.reload(); }}
+              className="w-full py-2 bg-indigo-500/20 text-indigo-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 hover:bg-indigo-500/30 transition-all"
             >
-              Update & Reload App
+              Update & Reload
             </button>
           </div>
         )}
@@ -160,35 +133,33 @@ const JoinScreen: React.FC<JoinScreenProps> = ({ onJoin }) => {
           <button onClick={() => setIsCreating(false)} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isCreating ? 'bg-white text-black shadow-lg' : 'text-slate-500'}`}>Join</button>
         </div>
 
-        {error && <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black text-center uppercase tracking-wider animate-bounce">{error}</div>}
+        {error && <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black text-center uppercase tracking-wider">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Your Name</label>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Identity</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white focus:outline-none focus:border-white/30 transition-all placeholder-slate-700" placeholder="Display Name" />
           </div>
 
-          {!isCreating && (
+          {!isCreating ? (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Room ID</label>
               <input type="text" value={roomID} onChange={(e) => setRoomID(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white focus:outline-none uppercase" placeholder="XXXXXX" />
             </div>
-          )}
-
-          {isCreating && (
+          ) : (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Room Name</label>
-              <input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white focus:outline-none" placeholder="Deep Work Session" />
+              <input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white focus:outline-none" placeholder="Session Title" />
             </div>
           )}
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Passcode</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white focus:outline-none" placeholder="Optional Room Key" />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white focus:outline-none" placeholder="Optional Password" />
           </div>
 
           <button type="submit" disabled={loading} className="w-full bg-white text-black font-black py-4 rounded-2xl shadow-xl hover:bg-slate-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-            {loading ? 'CONNECTING...' : isCreating ? 'LAUNCH SESSION' : 'JOIN SESSION'}
+            {loading ? 'SYNCING...' : isCreating ? 'START SESSION' : 'JOIN SESSION'}
           </button>
         </form>
         
@@ -196,7 +167,7 @@ const JoinScreen: React.FC<JoinScreenProps> = ({ onJoin }) => {
           onClick={() => setShowConfig(!showConfig)}
           className="w-full mt-6 text-[9px] font-black text-slate-600 uppercase tracking-widest hover:text-slate-400 transition-colors"
         >
-          {showConfig ? 'Hide Settings' : 'Settings & Troubleshooting'}
+          {showConfig ? 'Hide Config' : 'Troubleshooting'}
         </button>
       </div>
     </div>
