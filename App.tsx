@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isActive, setIsActive] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isChatFullScreen, setIsChatFullScreen] = useState(false);
 
   // Sync state with Supabase
   useEffect(() => {
@@ -57,9 +58,15 @@ const App: React.FC = () => {
         setIsActive(update.is_active);
         setCurrentRoom(prev => prev ? { ...prev, study_duration: update.study_duration, break_duration: update.break_duration } : null);
         
-        // Auto minimize if study session starts
+        // Auto-minimize timer and maximize chat when study starts
         if (update.is_active && update.timer_mode === TimerMode.STUDY) {
           setIsMinimized(true);
+          setIsChatFullScreen(true);
+        }
+        
+        // Auto-restore layout when break transitions (optional but helpful)
+        if (update.timer_mode === TimerMode.BREAK && !isChatFullScreen) {
+           // We keep the user's manual choice if they were in full screen
         }
       })
       .subscribe();
@@ -82,17 +89,30 @@ const App: React.FC = () => {
     if (isActive && timeLeft > 0) {
       interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     } else if (isActive && timeLeft === 0) {
-      const nextMode = timerMode === TimerMode.STUDY ? TimerMode.BREAK : TimerMode.STUDY;
+      const isFinishingStudy = timerMode === TimerMode.STUDY;
+      const nextMode = isFinishingStudy ? TimerMode.BREAK : TimerMode.STUDY;
       const nextTime = nextMode === TimerMode.STUDY 
         ? currentRoom!.study_duration * 60 
         : currentRoom!.break_duration * 60;
       
       setTimerMode(nextMode);
       setTimeLeft(nextTime);
-      setIsActive(false);
-      setIsMinimized(false); // Restore on break
+      
+      // If finished study, auto-start break. If finished break, stop and wait for manual focus start.
+      const shouldAutoStart = isFinishingStudy;
+      setIsActive(shouldAutoStart);
+      
+      if (!shouldAutoStart) {
+        setIsMinimized(false);
+        setIsChatFullScreen(false);
+      }
 
-      syncRoomState({ timer_mode: nextMode, time_left: nextTime, is_active: false });
+      syncRoomState({ 
+        timer_mode: nextMode, 
+        time_left: nextTime, 
+        is_active: shouldAutoStart 
+      });
+      
       try { new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play(); } catch (e) {}
     }
     return () => clearInterval(interval);
@@ -124,9 +144,7 @@ const App: React.FC = () => {
   };
 
   const resetTimer = () => {
-    // Cannot reset if it's an active study session per requirement
     if (isActive && timerMode === TimerMode.STUDY) return;
-    
     const initialTime = currentRoom!.study_duration * 60;
     syncRoomState({ is_active: false, time_left: initialTime, timer_mode: TimerMode.STUDY });
   };
@@ -148,7 +166,7 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen bg-black text-slate-100 overflow-hidden font-inter select-none">
       {/* Top Bar for Minimized Timer */}
       {isMinimized && (
-        <div className="w-full bg-slate-950 border-b border-white/5 py-2 px-6 flex items-center justify-between z-50 animate-in slide-in-from-top duration-300">
+        <div className="w-full bg-slate-950/90 backdrop-blur-md border-b border-white/5 py-2 px-6 flex items-center justify-between z-50 animate-in slide-in-from-top duration-300">
            <div className="flex items-center gap-3">
               <div className={`w-2 h-2 rounded-full ${timerMode === TimerMode.STUDY ? 'bg-rose-500' : 'bg-emerald-500'} ${isActive ? 'animate-pulse' : ''}`}></div>
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -158,8 +176,8 @@ const App: React.FC = () => {
            <div className="text-xl font-black font-mono tracking-tighter tabular-nums">
              {formatTime(timeLeft)}
            </div>
-           <button onClick={() => setIsMinimized(false)} className="text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-white transition-colors">
-             Restore
+           <button onClick={() => { setIsMinimized(false); setIsChatFullScreen(false); }} className="text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-white transition-colors">
+             Restore Layout
            </button>
         </div>
       )}
@@ -173,22 +191,14 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {!isMinimized && (
-            <button 
-              onClick={() => setIsMinimized(true)}
-              className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors hidden md:block"
-            >
-              Minimize Timer
-            </button>
-          )}
           <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500/10 text-red-500 rounded-xl border border-red-500/20 hover:bg-red-500 hover:text-white transition-all text-[9px] font-black tracking-widest uppercase">
             Exit
           </button>
         </div>
       </header>
 
-      <main className={`flex-1 flex overflow-hidden ${isMinimized ? 'flex-col' : 'flex-col md:flex-row'}`}>
-        {!isMinimized && (
+      <main className={`flex-1 flex overflow-hidden ${isMinimized || isChatFullScreen ? 'flex-col' : 'flex-col md:flex-row'}`}>
+        {(!isMinimized && !isChatFullScreen) && (
           <aside className="w-full md:w-[420px] shrink-0 p-8 flex flex-col items-center justify-center border-r border-white/5 bg-black overflow-y-auto">
             <Timer 
               mode={timerMode}
@@ -209,7 +219,12 @@ const App: React.FC = () => {
             messages={messages} 
             userName={userName} 
             onSendMessage={sendMessage}
-            isLocked={timerMode === TimerMode.STUDY} 
+            isLocked={timerMode === TimerMode.STUDY}
+            isFullScreen={isChatFullScreen}
+            onToggleFullScreen={(val) => {
+              setIsChatFullScreen(val);
+              setIsMinimized(val);
+            }}
           />
         </section>
       </main>
