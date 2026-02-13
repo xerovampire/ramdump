@@ -3,37 +3,34 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient | null = null;
 
-const getInitialConfig = () => {
-  // Check process.env (Standard/Vercel)
+export const getDetectedConfig = () => {
+  // 1. Check process.env (Node/Vercel/Webpack)
   const env = (typeof process !== 'undefined' && process.env) ? process.env : {};
   
-  // Check import.meta.env (Modern ESM tools)
+  // 2. Check import.meta.env (Vite/Modern ESM)
   // @ts-ignore
   const metaEnv = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
 
-  // Check global window (Direct injection)
-  const win = (typeof window !== 'undefined') ? (window as any) : {};
-  const winEnv = win.process?.env || win._env_ || win.env || {};
+  // 3. Check global window/globalThis (Direct injection or Sandbox globals)
+  const g = (typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {})) as any;
+  const winEnv = g.process?.env || g._env_ || g.env || g.CONFIG || {};
 
-  // Try all possible names including common prefixes
-  const url = 
-    env.SUPABASE_URL || metaEnv.SUPABASE_URL || winEnv.SUPABASE_URL ||
-    env.VITE_SUPABASE_URL || metaEnv.VITE_SUPABASE_URL ||
-    env.NEXT_PUBLIC_SUPABASE_URL || metaEnv.NEXT_PUBLIC_SUPABASE_URL ||
-    sessionStorage.getItem('manual_supabase_url') || '';
+  const find = (key: string) => {
+    return env[key] || metaEnv[key] || winEnv[key] || 
+           env[`VITE_${key}`] || metaEnv[`VITE_${key}`] || 
+           env[`NEXT_PUBLIC_${key}`] || metaEnv[`NEXT_PUBLIC_${key}`] || 
+           sessionStorage.getItem(`manual_${key.toLowerCase()}`);
+  };
 
-  const key = 
-    env.SUPABASE_ANON_KEY || metaEnv.SUPABASE_ANON_KEY || winEnv.SUPABASE_ANON_KEY ||
-    env.VITE_SUPABASE_ANON_KEY || metaEnv.VITE_SUPABASE_ANON_KEY ||
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY || metaEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    sessionStorage.getItem('manual_supabase_key') || '';
-
-  return { url, key };
+  return {
+    url: find('SUPABASE_URL') || '',
+    key: find('SUPABASE_ANON_KEY') || ''
+  };
 };
 
 export const isSupabaseConfigured = () => {
-  const { url, key } = getInitialConfig();
-  return !!(url && key);
+  const { url, key } = getDetectedConfig();
+  return !!(url && key && url.startsWith('http'));
 };
 
 export const configureSupabase = (url: string, key: string) => {
@@ -44,10 +41,9 @@ export const configureSupabase = (url: string, key: string) => {
   return client;
 };
 
-// Singleton getter for the client
 export const getSupabase = () => {
   if (client) return client;
-  const { url, key } = getInitialConfig();
+  const { url, key } = getDetectedConfig();
   if (url && key) {
     client = createClient(url, key);
     return client;
@@ -55,5 +51,4 @@ export const getSupabase = () => {
   return null as any;
 };
 
-// For backward compatibility and immediate use where safe
 export const supabase = getSupabase();
