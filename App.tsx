@@ -58,16 +58,7 @@ const App: React.FC = () => {
         setIsActive(update.is_active);
         setCurrentRoom(prev => prev ? { ...prev, study_duration: update.study_duration, break_duration: update.break_duration } : null);
         
-        // Auto-minimize timer and maximize chat when study starts
-        if (update.is_active && update.timer_mode === TimerMode.STUDY) {
-          setIsMinimized(true);
-          setIsChatFullScreen(true);
-        }
-        
-        // Auto-restore layout when break transitions (optional but helpful)
-        if (update.timer_mode === TimerMode.BREAK && !isChatFullScreen) {
-           // We keep the user's manual choice if they were in full screen
-        }
+        // Removed auto-minimize/fullscreen logic per user request for manual control
       })
       .subscribe();
 
@@ -98,13 +89,12 @@ const App: React.FC = () => {
       setTimerMode(nextMode);
       setTimeLeft(nextTime);
       
-      // If finished study, auto-start break. If finished break, stop and wait for manual focus start.
       const shouldAutoStart = isFinishingStudy;
       setIsActive(shouldAutoStart);
       
-      if (!shouldAutoStart) {
+      // Auto-restore layout ONLY when moving to break and user wasn't in manual full screen
+      if (!shouldAutoStart && isMinimized && !isChatFullScreen) {
         setIsMinimized(false);
-        setIsChatFullScreen(false);
       }
 
       syncRoomState({ 
@@ -166,18 +156,18 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen bg-black text-slate-100 overflow-hidden font-inter select-none">
       {/* Top Bar for Minimized Timer */}
       {isMinimized && (
-        <div className="w-full bg-slate-950/90 backdrop-blur-md border-b border-white/5 py-2 px-6 flex items-center justify-between z-50 animate-in slide-in-from-top duration-300">
+        <div className="w-full bg-slate-950/90 backdrop-blur-md border-b border-white/5 py-2 px-6 flex items-center justify-between z-50 animate-in slide-in-from-top duration-300 shadow-2xl">
            <div className="flex items-center gap-3">
               <div className={`w-2 h-2 rounded-full ${timerMode === TimerMode.STUDY ? 'bg-rose-500' : 'bg-emerald-500'} ${isActive ? 'animate-pulse' : ''}`}></div>
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 {timerMode === TimerMode.STUDY ? 'Focus' : 'Break'}
               </span>
            </div>
-           <div className="text-xl font-black font-mono tracking-tighter tabular-nums">
+           <div className="text-xl font-black font-mono tracking-tighter tabular-nums text-white">
              {formatTime(timeLeft)}
            </div>
-           <button onClick={() => { setIsMinimized(false); setIsChatFullScreen(false); }} className="text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-white transition-colors">
-             Restore Layout
+           <button onClick={() => { setIsMinimized(false); setIsChatFullScreen(false); }} className="text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-400 transition-colors bg-indigo-500/10 px-3 py-1 rounded-lg">
+             Restore
            </button>
         </div>
       )}
@@ -191,6 +181,9 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
+           {!isMinimized && (
+             <button onClick={() => setIsMinimized(true)} className="text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors mr-2">Minimize</button>
+           )}
           <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500/10 text-red-500 rounded-xl border border-red-500/20 hover:bg-red-500 hover:text-white transition-all text-[9px] font-black tracking-widest uppercase">
             Exit
           </button>

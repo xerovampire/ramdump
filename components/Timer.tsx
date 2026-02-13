@@ -29,7 +29,9 @@ const Timer: React.FC<TimerProps> = ({
   };
 
   const percentage = (timeLeft / totalTime) * 100;
-  const strokeDashoffset = 283 - (283 * (100 - percentage)) / 100;
+  // Circumference = 2 * PI * R (R=45) = 282.74
+  const circumference = 2 * Math.PI * 45;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
   const isStudy = mode === TimerMode.STUDY;
   const canReset = !(isActive && isStudy);
 
@@ -70,16 +72,23 @@ const Timer: React.FC<TimerProps> = ({
 
       <div className={`relative w-72 h-72 flex items-center justify-center transition-all duration-500 ${showSettings ? 'opacity-5 pointer-events-none scale-90' : 'opacity-100'}`}>
         <div className={`absolute inset-0 blur-[100px] rounded-full opacity-10 transition-colors duration-1000 ${isStudy ? 'bg-rose-600' : 'bg-emerald-600'}`}></div>
-        <svg className="absolute w-full h-full -rotate-90">
-          <circle cx="50%" cy="50%" r="42%" className="stroke-white/5 fill-none" strokeWidth="8" />
-          <circle cx="50%" cy="50%" r="42%" className={`fill-none transition-all duration-1000 ease-in-out ${isStudy ? 'stroke-rose-500' : 'stroke-emerald-500'}`} strokeWidth="8" strokeDasharray="283" strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
+        <svg viewBox="0 0 100 100" className="absolute w-full h-full -rotate-90">
+          <circle cx="50" cy="50" r="45" className="stroke-white/5 fill-none" strokeWidth="6" />
+          <circle 
+            cx="50" cy="50" r="45" 
+            className={`fill-none transition-all duration-500 ease-linear ${isStudy ? 'stroke-rose-500' : 'stroke-emerald-500'}`} 
+            strokeWidth="6" 
+            strokeDasharray={circumference} 
+            style={{ strokeDashoffset }} 
+            strokeLinecap="round" 
+          />
         </svg>
 
         <div className="text-center z-10">
           <p className={`text-[9px] font-black uppercase tracking-[0.4em] mb-2 transition-colors duration-500 ${isStudy ? 'text-rose-500' : 'text-emerald-500'}`}>
             {isStudy ? 'Focusing' : 'Resting'}
           </p>
-          <h2 className="text-7xl font-black font-mono tracking-tighter text-white tabular-nums">{formatTime(timeLeft)}</h2>
+          <h2 className="text-7xl font-black font-mono tracking-tighter text-white tabular-nums leading-none">{formatTime(timeLeft)}</h2>
         </div>
       </div>
 
@@ -87,16 +96,21 @@ const Timer: React.FC<TimerProps> = ({
         <button
           onClick={onToggle}
           className={`px-12 py-5 rounded-[2rem] font-black uppercase tracking-widest text-[11px] transition-all flex items-center gap-4 active:scale-95 shadow-2xl ${
-            isActive ? 'bg-slate-900 text-slate-100 border border-white/10' : 'bg-white text-black hover:bg-slate-100'
+            isActive ? 'bg-slate-900 text-slate-100 border border-white/10 hover:bg-slate-800' : 'bg-white text-black hover:bg-slate-100'
           }`}
         >
+          {isActive ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          )}
           {isActive ? 'Pause' : 'Start Focus'}
         </button>
         
         <button
           onClick={onReset}
           disabled={!canReset}
-          className={`p-5 rounded-[2rem] border border-white/5 transition-all active:scale-90 ${canReset ? 'bg-slate-900 text-slate-500 hover:text-white' : 'bg-slate-950 text-slate-800 cursor-not-allowed'}`}
+          className={`p-5 rounded-[2rem] border border-white/5 transition-all active:scale-90 ${canReset ? 'bg-slate-900 text-slate-500 hover:text-white hover:bg-slate-800' : 'bg-slate-950 text-slate-800 cursor-not-allowed'}`}
           title={canReset ? "Reset Session" : "Cannot reset active study session"}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -104,7 +118,7 @@ const Timer: React.FC<TimerProps> = ({
 
         <button
           onClick={() => setShowSettings(true)}
-          className="p-5 bg-slate-900 border border-white/5 text-slate-500 hover:text-white rounded-[2rem] transition-all active:scale-90"
+          className="p-5 bg-slate-900 border border-white/5 text-slate-500 hover:text-white rounded-[2rem] transition-all active:scale-90 hover:bg-slate-800"
           title="Configure Session"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
